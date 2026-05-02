@@ -28,11 +28,11 @@ let currentSeason  = 1;
 let currentEpisode = 1;
 let totalSeasons   = 1;
 let episodeCounts  = {};
-let episodeNames   = {}; // episodeNames[season][episode] = "Episode Title"
+let episodeNames   = {};
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
-  if (!mediaId) { showError("No title selected."); return; }
+  if (!mediaId) { showError("No title selected. Go back and pick something to watch."); return; }
 
   setupSourceButtons();
   setupSearchNav();
@@ -49,10 +49,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 // ─── MOVIE ────────────────────────────────────────────────────────────────────
 async function loadMovieDetails() {
-  const [movie, credits] = await Promise.all([
-    fetch(`${WATCH_TMDB}/movie/${mediaId}?api_key=${WATCH_API_KEY}`).then(r => r.json()),
-    fetch(`${WATCH_TMDB}/movie/${mediaId}/credits?api_key=${WATCH_API_KEY}`).then(r => r.json()),
-  ]);
+  let movie, credits;
+  try {
+    [movie, credits] = await Promise.all([
+      fetch(`${WATCH_TMDB}/movie/${mediaId}?api_key=${WATCH_API_KEY}`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+      fetch(`${WATCH_TMDB}/movie/${mediaId}/credits?api_key=${WATCH_API_KEY}`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+    ]);
+  } catch {
+    showError("⚠ Couldn't load movie details. Check your connection and try again.");
+    return;
+  }
   document.title = `${movie.title} — StreamVault`;
   renderDetails(movie, credits);
   loadPlayer();
@@ -60,10 +66,16 @@ async function loadMovieDetails() {
 
 // ─── TV ───────────────────────────────────────────────────────────────────────
 async function loadTVDetails() {
-  const [show, credits] = await Promise.all([
-    fetch(`${WATCH_TMDB}/tv/${mediaId}?api_key=${WATCH_API_KEY}`).then(r => r.json()),
-    fetch(`${WATCH_TMDB}/tv/${mediaId}/credits?api_key=${WATCH_API_KEY}`).then(r => r.json()),
-  ]);
+  let show, credits;
+  try {
+    [show, credits] = await Promise.all([
+      fetch(`${WATCH_TMDB}/tv/${mediaId}?api_key=${WATCH_API_KEY}`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+      fetch(`${WATCH_TMDB}/tv/${mediaId}/credits?api_key=${WATCH_API_KEY}`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+    ]);
+  } catch {
+    showError("⚠ Couldn't load show details. Check your connection and try again.");
+    return;
+  }
   document.title = `${show.name} — StreamVault`;
   totalSeasons = show.number_of_seasons || 1;
   (show.seasons || []).forEach(s => {
@@ -78,15 +90,17 @@ async function loadTVDetails() {
 }
 
 async function loadEpisodeNames(season) {
-  if (episodeNames[season]) return; // already cached
+  if (episodeNames[season]) return;
   try {
     const res  = await fetch(`${WATCH_TMDB}/tv/${mediaId}/season/${season}?api_key=${WATCH_API_KEY}`);
+    if (!res.ok) throw new Error();
     const data = await res.json();
     episodeNames[season] = {};
     (data.episodes || []).forEach(ep => {
       episodeNames[season][ep.episode_number] = ep.name || `Episode ${ep.episode_number}`;
     });
-  } catch (e) {
+  } catch {
+    // Non-critical — episode names just won't show; selects still work
     episodeNames[season] = {};
   }
 }
@@ -161,7 +175,6 @@ function loadPlayer() {
   const loading = document.getElementById("player-loading");
   const src     = SOURCES[currentSource];
 
-  // Show spinner, hide iframe
   loading.classList.remove("hidden");
   iframe.classList.add("hidden");
   iframe.src = "about:blank";
@@ -172,7 +185,6 @@ function loadPlayer() {
 
   if (mediaType === "tv") updateEpDisplay();
 
-  // iframe.onload won't fire for cross-origin embeds — just reveal after short delay
   setTimeout(() => {
     iframe.src = url;
     iframe.classList.remove("hidden");
@@ -222,10 +234,26 @@ function renderDetails(data, credits) {
 
 // ─── SIMILAR ─────────────────────────────────────────────────────────────────
 async function loadSimilar() {
-  const res  = await fetch(`${WATCH_TMDB}/${mediaType}/${mediaId}/similar?api_key=${WATCH_API_KEY}&page=1`);
-  const data = await res.json();
   const grid = document.getElementById("similar-grid");
-  (data.results || []).filter(i => i.poster_path).slice(0, 12).forEach(item => {
+  let items  = [];
+
+  try {
+    const res  = await fetch(`${WATCH_TMDB}/${mediaType}/${mediaId}/similar?api_key=${WATCH_API_KEY}&page=1`);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    items = (data.results || []).filter(i => i.poster_path).slice(0, 12);
+  } catch {
+    // Non-critical — just hide the section silently
+    grid.closest(".similar-section").style.display = "none";
+    return;
+  }
+
+  if (!items.length) {
+    grid.closest(".similar-section").style.display = "none";
+    return;
+  }
+
+  items.forEach(item => {
     const title = item.title || item.name || "";
     const year  = (item.release_date || item.first_air_date || "").slice(0, 4);
     const card  = document.createElement("div");
@@ -244,7 +272,7 @@ async function loadSimilar() {
   });
 }
 
-// ─── SEARCH (navigate on Enter or submit) ────────────────────────────────────
+// ─── SEARCH NAV ──────────────────────────────────────────────────────────────
 function setupSearchNav() {
   const input    = document.getElementById("search");
   const dropdown = document.getElementById("search-results");
@@ -263,22 +291,27 @@ function setupSearchNav() {
     const q = input.value.trim();
     if (!q) { dropdown.classList.add("hidden"); return; }
     debounce = setTimeout(async () => {
-      const res  = await fetch(`${WATCH_TMDB}/search/multi?api_key=${WATCH_API_KEY}&query=${encodeURIComponent(q)}&page=1`);
-      const data = await res.json();
-      const results = (data.results || []).filter(r => r.media_type !== "person" && r.poster_path).slice(0, 6);
-      if (!results.length) { dropdown.classList.add("hidden"); return; }
-      dropdown.innerHTML = results.map(item => {
-        const t = item.title || item.name || "";
-        const y = (item.release_date || item.first_air_date || "").slice(0, 4);
-        return `<div class="sr-item" data-id="${item.id}" data-type="${item.media_type}">
-          <img src="${WATCH_IMG}w92${item.poster_path}" alt="${t}" />
-          <div><strong>${t}</strong><span>${y}</span></div>
-        </div>`;
-      }).join("");
-      dropdown.classList.remove("hidden");
-      dropdown.querySelectorAll(".sr-item").forEach(el => {
-        el.onclick = () => { window.location.href = `movie.html?id=${el.dataset.id}&type=${el.dataset.type}`; };
-      });
+      try {
+        const res  = await fetch(`${WATCH_TMDB}/search/multi?api_key=${WATCH_API_KEY}&query=${encodeURIComponent(q)}&page=1`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        const results = (data.results || []).filter(r => r.media_type !== "person" && r.poster_path).slice(0, 6);
+        if (!results.length) { dropdown.classList.add("hidden"); return; }
+        dropdown.innerHTML = results.map(item => {
+          const t = item.title || item.name || "";
+          const y = (item.release_date || item.first_air_date || "").slice(0, 4);
+          return `<div class="sr-item" data-id="${item.id}" data-type="${item.media_type}">
+            <img src="${WATCH_IMG}w92${item.poster_path}" alt="${t}" />
+            <div><strong>${t}</strong><span>${y}</span></div>
+          </div>`;
+        }).join("");
+        dropdown.classList.remove("hidden");
+        dropdown.querySelectorAll(".sr-item").forEach(el => {
+          el.onclick = () => { window.location.href = `movie.html?id=${el.dataset.id}&type=${el.dataset.type}`; };
+        });
+      } catch {
+        dropdown.classList.add("hidden");
+      }
     }, 350);
   });
 
@@ -287,6 +320,8 @@ function setupSearchNav() {
   });
 }
 
+// ─── ERROR ────────────────────────────────────────────────────────────────────
 function showError(msg) {
-  document.getElementById("player-wrap").innerHTML = `<div class="error-msg">${msg}</div>`;
+  const playerWrap = document.getElementById("player-wrap");
+  if (playerWrap) playerWrap.innerHTML = `<div class="error-msg">${msg}</div>`;
 }
