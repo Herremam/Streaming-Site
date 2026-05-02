@@ -6,7 +6,7 @@ const SEARCH_IMG     = "https://image.tmdb.org/t/p/";
 // ─── STATE ────────────────────────────────────────────────────────────────────
 const urlParams   = new URLSearchParams(window.location.search);
 let searchQuery   = decodeURIComponent(urlParams.get("q") || "");
-let searchType    = "multi"; // multi | movie | tv
+let searchType    = "multi";
 let searchPage    = 1;
 let totalPages    = 1;
 
@@ -39,7 +39,7 @@ function setupTypeToggle() {
   });
 }
 
-// ─── SEARCH INPUT (Enter key or typing navigates) ────────────────────────────
+// ─── SEARCH INPUT ────────────────────────────────────────────────────────────
 function setupSearchInput() {
   const input    = document.getElementById("search");
   const dropdown = document.getElementById("search-results");
@@ -64,22 +64,27 @@ function setupSearchInput() {
     const q = input.value.trim();
     if (!q) { dropdown.classList.add("hidden"); return; }
     debounce = setTimeout(async () => {
-      const res  = await fetch(`${SEARCH_TMDB}/search/multi?api_key=${SEARCH_API_KEY}&query=${encodeURIComponent(q)}&page=1`);
-      const data = await res.json();
-      const results = (data.results || []).filter(r => r.media_type !== "person" && r.poster_path).slice(0, 5);
-      if (!results.length) { dropdown.classList.add("hidden"); return; }
-      dropdown.innerHTML = results.map(item => {
-        const t = item.title || item.name || "";
-        const y = (item.release_date || item.first_air_date || "").slice(0, 4);
-        return `<div class="sr-item" data-id="${item.id}" data-type="${item.media_type === 'tv' ? 'tv' : 'movie'}">
-          <img src="${SEARCH_IMG}w92${item.poster_path}" alt="${t}" />
-          <div><strong>${t}</strong><span>${y}</span></div>
-        </div>`;
-      }).join("");
-      dropdown.classList.remove("hidden");
-      dropdown.querySelectorAll(".sr-item").forEach(el => {
-        el.onclick = () => { window.location.href = `movie.html?id=${el.dataset.id}&type=${el.dataset.type}`; };
-      });
+      try {
+        const res  = await fetch(`${SEARCH_TMDB}/search/multi?api_key=${SEARCH_API_KEY}&query=${encodeURIComponent(q)}&page=1`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        const results = (data.results || []).filter(r => r.media_type !== "person" && r.poster_path).slice(0, 5);
+        if (!results.length) { dropdown.classList.add("hidden"); return; }
+        dropdown.innerHTML = results.map(item => {
+          const t = item.title || item.name || "";
+          const y = (item.release_date || item.first_air_date || "").slice(0, 4);
+          return `<div class="sr-item" data-id="${item.id}" data-type="${item.media_type === "tv" ? "tv" : "movie"}">
+            <img src="${SEARCH_IMG}w92${item.poster_path}" alt="${t}" />
+            <div><strong>${t}</strong><span>${y}</span></div>
+          </div>`;
+        }).join("");
+        dropdown.classList.remove("hidden");
+        dropdown.querySelectorAll(".sr-item").forEach(el => {
+          el.onclick = () => { window.location.href = `movie.html?id=${el.dataset.id}&type=${el.dataset.type}`; };
+        });
+      } catch {
+        dropdown.classList.add("hidden");
+      }
     }, 350);
   });
 
@@ -104,27 +109,36 @@ async function runSearch(reset = true) {
     showSkeletons(grid, 12);
   }
 
-  document.getElementById("search-heading").textContent =
-    `Results for "${searchQuery}"`;
+  document.getElementById("search-heading").textContent = `Results for "${searchQuery}"`;
   document.title = `"${searchQuery}" — StreamVault`;
 
-  // Build URL: multi-search or typed search
   const type = searchType === "multi" ? "multi" : searchType;
   const url  = `${SEARCH_TMDB}/search/${type}?api_key=${SEARCH_API_KEY}&query=${encodeURIComponent(searchQuery)}&page=${searchPage}&include_adult=false`;
 
-  const res  = await fetch(url);
-  const data = await res.json();
-  totalPages = data.total_pages || 1;
+  let items = [];
+  try {
+    const res  = await fetch(url);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    totalPages = data.total_pages || 1;
+    items = (data.results || []).filter(item => {
+      if (!item.poster_path) return false;
+      if (searchType === "multi") return item.media_type === "movie" || item.media_type === "tv";
+      return true;
+    });
+  } catch {
+    grid.querySelectorAll(".card.skeleton").forEach(s => s.remove());
+    if (reset) {
+      noRes.innerHTML = "<p>⚠ Search failed. Check your connection and try again.</p>";
+      noRes.classList.remove("hidden");
+    }
+    return;
+  }
 
   grid.querySelectorAll(".card.skeleton").forEach(s => s.remove());
 
-  const items = (data.results || []).filter(item => {
-    if (!item.poster_path) return false;
-    if (searchType === "multi") return item.media_type === "movie" || item.media_type === "tv";
-    return true;
-  });
-
   if (reset && items.length === 0) {
+    noRes.innerHTML = "<p>😕 No results found. Try a different search.</p>";
     noRes.classList.remove("hidden");
     return;
   }
@@ -152,11 +166,10 @@ async function runSearch(reset = true) {
         <p class="card-title">${title}</p>
         <span class="card-year">${year}</span>
       </div>`;
-    card.onclick = () => { window.location.href = `movie.html?id=${item.id}&type=${mediaType === 'tv' ? 'tv' : 'movie'}`; };
+    card.onclick = () => { window.location.href = `movie.html?id=${item.id}&type=${mediaType === "tv" ? "tv" : "movie"}`; };
     grid.appendChild(card);
   });
 
-  // Show load more if there are more pages
   if (searchPage < totalPages) {
     loadBtn.classList.remove("hidden");
   } else {
