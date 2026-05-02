@@ -28,6 +28,7 @@ let currentSeason  = 1;
 let currentEpisode = 1;
 let totalSeasons   = 1;
 let episodeCounts  = {};
+let episodeNames   = {}; // episodeNames[season][episode] = "Episode Title"
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
@@ -35,6 +36,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   setupSourceButtons();
   setupSearchNav();
+  setupPiP();
 
   if (mediaType === "tv") {
     document.getElementById("episode-bar").classList.remove("hidden");
@@ -70,9 +72,24 @@ async function loadTVDetails() {
   });
   renderDetails(show, credits);
   buildSeasonSelect();
+  await loadEpisodeNames(currentSeason);
   buildEpisodeSelect();
   setupEpisodeNav();
   loadPlayer();
+}
+
+async function loadEpisodeNames(season) {
+  if (episodeNames[season]) return; // already cached
+  try {
+    const res  = await fetch(`${WATCH_TMDB}/tv/${mediaId}/season/${season}?api_key=${WATCH_API_KEY}`);
+    const data = await res.json();
+    episodeNames[season] = {};
+    (data.episodes || []).forEach(ep => {
+      episodeNames[season][ep.episode_number] = ep.name || `Episode ${ep.episode_number}`;
+    });
+  } catch (e) {
+    episodeNames[season] = {};
+  }
 }
 
 function buildSeasonSelect() {
@@ -84,9 +101,10 @@ function buildSeasonSelect() {
     sel.appendChild(opt);
   }
   sel.value = currentSeason;
-  sel.onchange = () => {
+  sel.onchange = async () => {
     currentSeason = parseInt(sel.value);
     currentEpisode = 1;
+    await loadEpisodeNames(currentSeason);
     buildEpisodeSelect();
     updateEpDisplay();
   };
@@ -95,10 +113,12 @@ function buildSeasonSelect() {
 function buildEpisodeSelect() {
   const sel   = document.getElementById("episode-select");
   const count = episodeCounts[currentSeason] || 1;
+  const names = episodeNames[currentSeason] || {};
   sel.innerHTML = "";
   for (let e = 1; e <= count; e++) {
     const opt = document.createElement("option");
-    opt.value = e; opt.textContent = `Episode ${e}`;
+    opt.value = e;
+    opt.textContent = names[e] ? `${e}. ${names[e]}` : `Episode ${e}`;
     sel.appendChild(opt);
   }
   sel.value = currentEpisode;
@@ -120,14 +140,42 @@ function setupEpisodeNav() {
   };
 }
 
-function syncEpisodeSelects() {
+async function syncEpisodeSelects() {
   document.getElementById("season-select").value = currentSeason;
+  await loadEpisodeNames(currentSeason);
   buildEpisodeSelect();
   updateEpDisplay();
 }
 
 function updateEpDisplay() {
-  document.getElementById("ep-display").textContent = `S${currentSeason} E${currentEpisode}`;
+  const names   = episodeNames[currentSeason] || {};
+  const epName  = names[currentEpisode];
+  const display = document.getElementById("ep-display");
+  display.textContent = epName
+    ? `S${currentSeason} E${currentEpisode} — ${epName}`
+    : `S${currentSeason} E${currentEpisode}`;
+}
+
+// ─── PICTURE IN PICTURE ───────────────────────────────────────────────────────
+function setupPiP() {
+  const btn    = document.getElementById("pip-btn");
+  const iframe = document.getElementById("player-iframe");
+  if (!btn) return;
+  btn.addEventListener("click", async () => {
+    // PiP only works on a <video> element in the same origin.
+    // For cross-origin iframes we open the embed URL in a small popup window
+    // which the browser allows to float over other content.
+    const src = iframe.src;
+    if (!src || src === "about:blank") return;
+    const w = 640, h = 360;
+    const left = window.screen.width  - w - 20;
+    const top  = window.screen.height - h - 60;
+    window.open(
+      src,
+      "pip_player",
+      `width=${w},height=${h},left=${left},top=${top},resizable=yes,toolbar=no,menubar=no,location=no`
+    );
+  });
 }
 
 // ─── PLAYER ───────────────────────────────────────────────────────────────────
