@@ -1,0 +1,40 @@
+body {
+  margin: 0;
+  background: #111;
+  color: white;
+  font-family: Arial;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  padding: 20px;
+  background: #000;
+}
+
+input {
+  padding: 10px;
+  border-radius: 5px;
+  border: none;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 200px);
+  gap: 20px;
+  padding: 20px;
+}
+
+.movie {
+  cursor: pointer;
+}
+
+.movie img {
+  width: 100%;
+  border-radius: 10px;
+  transition: 0.3s;
+}
+
+.movie img:hover {
+  transform: scale(1.05);
+}
