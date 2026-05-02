@@ -57,7 +57,6 @@ function setupSearch() {
   const dropdown = document.getElementById("search-results");
   if (!input) return;
 
-  // Navigate to search page on Enter
   input.addEventListener("keydown", e => {
     if (e.key === "Enter") {
       const q = input.value.trim();
@@ -65,7 +64,6 @@ function setupSearch() {
     }
   });
 
-  // Quick-result dropdown while typing
   let debounce;
   input.addEventListener("input", () => {
     clearTimeout(debounce);
@@ -81,25 +79,20 @@ function setupSearch() {
 
 async function fetchDropdown(q, dropdown) {
   const type = currentTab === "movies" ? "movie" : "tv";
-  const res  = await fetch(`${TMDB}/search/${type}?api_key=${API_KEY}&query=${encodeURIComponent(q)}&page=1`);
-  const data = await res.json();
-  const results = (data.results || []).filter(i => i.poster_path).slice(0, 6);
+  let results = [];
+
+  try {
+    const res  = await fetch(`${TMDB}/search/${type}?api_key=${API_KEY}&query=${encodeURIComponent(q)}&page=1`);
+    if (!res.ok) throw new Error("Search failed");
+    const data = await res.json();
+    results = (data.results || []).filter(i => i.poster_path).slice(0, 6);
+  } catch {
+    dropdown.classList.add("hidden");
+    return;
+  }
 
   if (!results.length) { dropdown.classList.add("hidden"); return; }
 
-  dropdown.innerHTML = results.map(item => {
-    const title = item.title || item.name || "";
-    const year  = (item.release_date || item.first_air_date || "").slice(0, 4);
-    return `<div class="sr-item" data-id="${item.id}" data-type="${type}">
-      <img src="${IMG}w92${item.poster_path}" alt="${title}" />
-      <div><strong>${title}</strong><span>${year}</span></div>
-    </div>
-    <div class="sr-footer" data-q="${encodeURIComponent(q)}">
-      See all results for "<em>${q}</em>" →
-    </div>`;
-  }).join("").replace(/(<div class="sr-footer".*?<\/div>)\s*(<div class="sr-footer".*?<\/div>)/gs, '$1');
-
-  // De-dupe the footer — just add one at the bottom
   const items = results.map(item => {
     const title = item.title || item.name || "";
     const year  = (item.release_date || item.first_air_date || "").slice(0, 4);
@@ -123,7 +116,9 @@ async function fetchDropdown(q, dropdown) {
 
 // ─── LOAD PAGE ────────────────────────────────────────────────────────────────
 async function loadPage(reset = false) {
-  const grid = document.getElementById("movies");
+  const grid    = document.getElementById("movies");
+  const loadBtn = document.getElementById("load-more");
+
   if (reset) { grid.innerHTML = ""; currentPage = 1; showGridSkeleton(grid); }
 
   const type = currentTab === "movies" ? "movie" : "tv";
@@ -131,14 +126,27 @@ async function loadPage(reset = false) {
     ? `${TMDB}/discover/${type}?api_key=${API_KEY}&with_genres=${currentGenre}&sort_by=popularity.desc&page=${currentPage}`
     : `${TMDB}/trending/${type}/week?api_key=${API_KEY}&page=${currentPage}`;
 
-  const res  = await fetch(url);
-  const data = await res.json();
-  const items = data.results || [];
+  let items = [];
+  try {
+    const res  = await fetch(url);
+    if (!res.ok) throw new Error("Failed to load titles");
+    const data = await res.json();
+    items = data.results || [];
+  } catch {
+    grid.querySelectorAll(".card.skeleton").forEach(s => s.remove());
+    if (reset) {
+      grid.innerHTML = `<p class="error-msg">⚠ Couldn't load titles. Check your connection and try again.</p>`;
+    }
+    return;
+  }
 
   grid.querySelectorAll(".card.skeleton").forEach(s => s.remove());
   if (reset && items.length > 0) setupHero(items);
   renderCards(items, grid, type);
   currentPage++;
+
+  // Hide load-more if nothing came back
+  if (loadBtn && items.length === 0) loadBtn.style.display = "none";
 }
 
 // ─── HERO ─────────────────────────────────────────────────────────────────────
