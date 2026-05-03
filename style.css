@@ -712,3 +712,62 @@ body {
   .search-main { padding: 24px 16px 40px; }
   .search-header { flex-direction: column; align-items: flex-start; }
 }
+
+/* ─── CONTINUE WATCHING ────────────────────────────────────────────────────── */
+.cw-section { padding-top: 1.5rem; }
+
+.cw-card .progress-bar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 4px;
+  background: rgba(255,255,255,0.2);
+}
+.cw-card .progress-fill {
+  height: 100%;
+  background: var(--accent, #e50914);
+  border-radius: 0 2px 2px 0;
+  transition: width 0.3s;
+}
+.cw-remove {
+  position: absolute;
+  top: 6px; right: 6px;
+  background: rgba(0,0,0,0.7);
+  border: none;
+  color: #fff;
+  font-size: 0.7rem;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 10;
+}
+.cw-card:hover .cw-remove { opacity: 1; }
+
+/* ─── RESUME BANNER ────────────────────────────────────────────────────────── */
+#resume-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(0,0,0,0.85);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #fff;
+  font-size: 0.9rem;
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+  animation: fadeIn 0.3s ease;
+}
+#resume-banner span { flex: 1; }
+#resume-banner button {
+  padding: 0.3rem 0.9rem;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+#resume-yes { background: var(--accent, #e50914); color: #fff; }
+#resume-no  { background: rgba(255,255,255,0.15); color: #fff; }
+#resume-no:hover { background: rgba(255,255,255,0.25); }
