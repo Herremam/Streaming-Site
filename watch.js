@@ -29,13 +29,27 @@ let currentEpisode = 1;
 let totalSeasons   = 1;
 let episodeCounts  = {};
 let episodeNames   = {};
+let savedTimestamp = 0;   // seconds — restored from localStorage
+let mediaDuration  = 0;   // seconds — updated via postMessage if available
+let progressTimer  = null;
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
   if (!mediaId) { showError("No title selected. Go back and pick something to watch."); return; }
 
+  // Restore saved progress before loading details
+  const saved = progressGet(mediaId, mediaType);
+  if (saved) {
+    savedTimestamp = saved.timestamp || 0;
+    if (mediaType === "tv") {
+      currentSeason  = saved.season  || 1;
+      currentEpisode = saved.episode || 1;
+    }
+  }
+
   setupSourceButtons();
   setupSearchNav();
+  setupPostMessageListener();
 
   if (mediaType === "tv") {
     document.getElementById("episode-bar").classList.remove("hidden");
@@ -45,6 +59,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   loadSimilar();
+  setupPageUnloadSave();
 });
 
 // ─── MOVIE ────────────────────────────────────────────────────────────────────
@@ -61,6 +76,7 @@ async function loadMovieDetails() {
   }
   document.title = `${movie.title} — StreamVault`;
   renderDetails(movie, credits);
+  saveProgress({ title: movie.title, poster_path: movie.poster_path, year: (movie.release_date || "").slice(0, 4) });
   loadPlayer();
 }
 
@@ -82,6 +98,7 @@ async function loadTVDetails() {
     if (s.season_number > 0) episodeCounts[s.season_number] = s.episode_count;
   });
   renderDetails(show, credits);
+  saveProgress({ title: show.name, poster_path: show.poster_path, year: (show.first_air_date || "").slice(0, 4) });
   buildSeasonSelect();
   await loadEpisodeNames(currentSeason);
   buildEpisodeSelect();
@@ -178,17 +195,36 @@ function loadPlayer() {
   loading.classList.remove("hidden");
   iframe.classList.add("hidden");
   iframe.src = "about:blank";
+  clearInterval(progressTimer);
 
   const url = mediaType === "tv"
     ? src.tv(mediaId, currentSeason, currentEpisode)
     : src.movie(mediaId);
 
-  if (mediaType === "tv") updateEpDisplay();
+  if (mediaType === "tv") {
+    updateEpDisplay();
+    saveProgress({});  // update season/episode immediately on episode change
+  }
+
+  // Show resume banner if we have a saved timestamp (movies only — TV resumes via season/ep)
+  if (mediaType === "movie" && savedTimestamp > 30) {
+    showResumeBanner(savedTimestamp);
+  }
 
   setTimeout(() => {
     iframe.src = url;
     iframe.classList.remove("hidden");
     loading.classList.add("hidden");
+
+    // Best-effort: attempt postMessage seek after embed loads
+    if (mediaType === "movie" && savedTimestamp > 30) {
+      attemptSeek(iframe, savedTimestamp);
+    }
+
+    // Poll progress every 15s via postMessage (embed may ignore — that's fine)
+    progressTimer = setInterval(() => {
+      try { iframe.contentWindow.postMessage({ type: "getProgress" }, "*"); } catch { }
+    }, 15000);
   }, 500);
 }
 
@@ -317,6 +353,87 @@ function setupSearchNav() {
 
   document.addEventListener("click", e => {
     if (!e.target.closest(".search-wrap")) dropdown.classList.add("hidden");
+  });
+}
+
+// ─── PROGRESS SAVE ────────────────────────────────────────────────────────────
+function saveProgress(extra) {
+  progressSave(mediaId, mediaType, {
+    season:    mediaType === "tv" ? currentSeason  : undefined,
+    episode:   mediaType === "tv" ? currentEpisode : undefined,
+    timestamp: savedTimestamp,
+    duration:  mediaDuration,
+    ...extra,
+  });
+}
+
+function setupPageUnloadSave() {
+  window.addEventListener("pagehide", saveProgress);
+  window.addEventListener("beforeunload", saveProgress);
+}
+
+// ─── RESUME BANNER ────────────────────────────────────────────────────────────
+function showResumeBanner(ts) {
+  const existing = document.getElementById("resume-banner");
+  if (existing) existing.remove();
+
+  const mins = Math.floor(ts / 60);
+  const secs = String(Math.floor(ts % 60)).padStart(2, "0");
+  const banner = document.createElement("div");
+  banner.id = "resume-banner";
+  banner.innerHTML = `
+    <span>▶ Resume from ${mins}:${secs}?</span>
+    <button id="resume-yes">Resume</button>
+    <button id="resume-no">Start Over</button>`;
+  document.getElementById("player-wrap")?.prepend(banner);
+
+  document.getElementById("resume-yes").onclick = () => {
+    attemptSeek(document.getElementById("player-iframe"), ts);
+    banner.remove();
+  };
+  document.getElementById("resume-no").onclick = () => {
+    savedTimestamp = 0;
+    banner.remove();
+  };
+
+  // Auto-dismiss after 10s
+  setTimeout(() => banner?.remove(), 10000);
+}
+
+// ─── POSTMESSAGE SEEK ─────────────────────────────────────────────────────────
+function attemptSeek(iframe, ts) {
+  // Try multiple message formats used by common embed players
+  const msgs = [
+    { type: "seek",        time: ts },
+    { event: "seek",       seconds: ts },
+    { method: "seek",      value: ts },
+    { action: "seekTo",    time: ts },
+  ];
+  try {
+    msgs.forEach(m => iframe.contentWindow.postMessage(m, "*"));
+    iframe.contentWindow.postMessage(JSON.stringify({ event: "seek", seconds: ts }), "*");
+  } catch { /* cross-origin block — silently ignored */ }
+}
+
+// ─── POSTMESSAGE LISTENER ─────────────────────────────────────────────────────
+function setupPostMessageListener() {
+  window.addEventListener("message", e => {
+    const d = e.data;
+    if (!d) return;
+
+    // Parse string payloads
+    let data = d;
+    if (typeof d === "string") {
+      try { data = JSON.parse(d); } catch { return; }
+    }
+
+    // Capture current time from various player event shapes
+    const ct = data.currentTime ?? data.time ?? data.position ?? data.seconds;
+    if (typeof ct === "number" && ct > 0) savedTimestamp = ct;
+
+    // Capture duration
+    const dur = data.duration ?? data.totalTime;
+    if (typeof dur === "number" && dur > 0) mediaDuration = dur;
   });
 }
 
