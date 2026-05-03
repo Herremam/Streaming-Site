@@ -13,6 +13,10 @@ let heroTimer     = null;
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
+  // Continue Watching row
+  const cwGrid = document.getElementById("cw-grid");
+  if (cwGrid) renderContinueWatching(cwGrid, IMG);
+
   setupTabs();
   setupGenres();
   setupSearch();
