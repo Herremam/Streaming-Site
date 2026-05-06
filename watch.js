@@ -1,7 +1,12 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
-const WATCH_API_KEY = "e9bb455fd0a77ed6738fa3e7826b4ee9";
-const WATCH_TMDB    = "https://api.themoviedb.org/3";
-const WATCH_IMG     = "https://image.tmdb.org/t/p/";
+// No API key here — all requests are proxied through /api/tmdb on the server.
+const WATCH_TMDB = "/api/tmdb";
+const WATCH_IMG  = "https://image.tmdb.org/t/p/";
+
+function tmdbUrl(path, params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return `${WATCH_TMDB}/${path}${qs ? "?" + qs : ""}`;
+}
 
 // ─── EMBED SOURCES ────────────────────────────────────────────────────────────
 const SOURCES = {
@@ -29,17 +34,16 @@ let currentEpisode = 1;
 let totalSeasons   = 1;
 let episodeCounts  = {};
 let episodeNames   = {};
-let savedTimestamp = 0;   // seconds — restored from localStorage
-let mediaDuration  = 0;   // seconds — updated via postMessage if available
+let savedTimestamp = 0;
+let mediaDuration  = 0;
 let progressTimer  = null;
-let autoNextEnabled = false;       // auto-next toggle state
-let autoNextTimer   = null;        // countdown timer for auto-next
+let autoNextEnabled = false;
+let autoNextTimer   = null;
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
   if (!mediaId) { showError("No title selected. Go back and pick something to watch."); return; }
 
-  // Restore saved progress before loading details
   const saved = progressGet(mediaId, mediaType);
   if (saved) {
     savedTimestamp = saved.timestamp || 0;
@@ -69,8 +73,8 @@ async function loadMovieDetails() {
   let movie, credits;
   try {
     [movie, credits] = await Promise.all([
-      fetch(`${WATCH_TMDB}/movie/${mediaId}?api_key=${WATCH_API_KEY}`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
-      fetch(`${WATCH_TMDB}/movie/${mediaId}/credits?api_key=${WATCH_API_KEY}`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+      fetch(tmdbUrl(`movie/${mediaId}`)).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+      fetch(tmdbUrl(`movie/${mediaId}/credits`)).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
     ]);
   } catch {
     showError("⚠ Couldn't load movie details. Check your connection and try again.");
@@ -87,8 +91,8 @@ async function loadTVDetails() {
   let show, credits;
   try {
     [show, credits] = await Promise.all([
-      fetch(`${WATCH_TMDB}/tv/${mediaId}?api_key=${WATCH_API_KEY}`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
-      fetch(`${WATCH_TMDB}/tv/${mediaId}/credits?api_key=${WATCH_API_KEY}`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+      fetch(tmdbUrl(`tv/${mediaId}`)).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+      fetch(tmdbUrl(`tv/${mediaId}/credits`)).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
     ]);
   } catch {
     showError("⚠ Couldn't load show details. Check your connection and try again.");
@@ -111,7 +115,7 @@ async function loadTVDetails() {
 async function loadEpisodeNames(season) {
   if (episodeNames[season]) return;
   try {
-    const res  = await fetch(`${WATCH_TMDB}/tv/${mediaId}/season/${season}?api_key=${WATCH_API_KEY}`);
+    const res  = await fetch(tmdbUrl(`tv/${mediaId}/season/${season}`));
     if (!res.ok) throw new Error();
     const data = await res.json();
     episodeNames[season] = {};
@@ -119,7 +123,6 @@ async function loadEpisodeNames(season) {
       episodeNames[season][ep.episode_number] = ep.name || `Episode ${ep.episode_number}`;
     });
   } catch {
-    // Non-critical — episode names just won't show; selects still work
     episodeNames[season] = {};
   }
 }
@@ -159,7 +162,6 @@ function buildEpisodeSelect() {
 }
 
 function setupEpisodeNav() {
-  // Auto-Next toggle
   const autoNextBtn = document.getElementById("autonext-toggle");
   autoNextBtn.onclick = () => {
     autoNextEnabled = !autoNextEnabled;
@@ -219,10 +221,9 @@ function loadPlayer() {
 
   if (mediaType === "tv") {
     updateEpDisplay();
-    saveProgress({});  // update season/episode immediately on episode change
+    saveProgress({});
   }
 
-  // Show resume banner if we have a saved timestamp (movies only — TV resumes via season/ep)
   if (mediaType === "movie" && savedTimestamp > 30) {
     showResumeBanner(savedTimestamp);
   }
@@ -232,17 +233,14 @@ function loadPlayer() {
     iframe.classList.remove("hidden");
     loading.classList.add("hidden");
 
-    // Best-effort: attempt postMessage seek after embed loads
     if (mediaType === "movie" && savedTimestamp > 30) {
       attemptSeek(iframe, savedTimestamp);
     }
 
-    // Poll progress every 15s via postMessage (embed may ignore — that's fine)
     progressTimer = setInterval(() => {
       try { iframe.contentWindow.postMessage({ type: "getProgress" }, "*"); } catch { }
     }, 15000);
 
-    // Auto-next: schedule after a fixed duration estimate for TV (fallback since embeds block events)
     if (mediaType === "tv" && autoNextEnabled) {
       scheduleAutoNext();
     }
@@ -255,9 +253,7 @@ function scheduleAutoNext() {
   const existing = document.getElementById("autonext-banner");
   if (existing) existing.remove();
 
-  // Use known duration or fall back to 42-minute TV episode estimate
   const epDuration = mediaDuration > 60 ? mediaDuration : 42 * 60;
-  // Show the countdown banner 30s before the estimated end
   const showBannerIn = Math.max((epDuration - 30) * 1000, 5000);
 
   autoNextTimer = setTimeout(() => {
@@ -270,8 +266,8 @@ function showAutoNextBanner() {
   const existing = document.getElementById("autonext-banner");
   if (existing) existing.remove();
 
-  const maxEp      = episodeCounts[currentSeason] || 1;
-  const hasNext    = currentEpisode < maxEp || currentSeason < totalSeasons;
+  const maxEp   = episodeCounts[currentSeason] || 1;
+  const hasNext = currentEpisode < maxEp || currentSeason < totalSeasons;
   if (!hasNext) return;
 
   let countdown = 10;
@@ -301,7 +297,7 @@ async function goNextEpisode() {
   const maxEp = episodeCounts[currentSeason] || 1;
   if (currentEpisode < maxEp) { currentEpisode++; }
   else if (currentSeason < totalSeasons) { currentSeason++; currentEpisode = 1; }
-  else { return; } // already at last episode
+  else { return; }
   await syncEpisodeSelects();
   loadPlayer();
 }
@@ -352,12 +348,11 @@ async function loadSimilar() {
   let items  = [];
 
   try {
-    const res  = await fetch(`${WATCH_TMDB}/${mediaType}/${mediaId}/similar?api_key=${WATCH_API_KEY}&page=1`);
+    const res  = await fetch(tmdbUrl(`${mediaType}/${mediaId}/similar`, { page: 1 }));
     if (!res.ok) throw new Error();
     const data = await res.json();
     items = (data.results || []).filter(i => i.poster_path).slice(0, 12);
   } catch {
-    // Non-critical — just hide the section silently
     grid.closest(".similar-section").style.display = "none";
     return;
   }
@@ -406,7 +401,7 @@ function setupSearchNav() {
     if (!q) { dropdown.classList.add("hidden"); return; }
     debounce = setTimeout(async () => {
       try {
-        const res  = await fetch(`${WATCH_TMDB}/search/multi?api_key=${WATCH_API_KEY}&query=${encodeURIComponent(q)}&page=1`);
+        const res  = await fetch(tmdbUrl("search/multi", { query: q, page: 1 }));
         if (!res.ok) throw new Error();
         const data = await res.json();
         const results = (data.results || []).filter(r => r.media_type !== "person" && r.poster_path).slice(0, 6);
@@ -474,13 +469,11 @@ function showResumeBanner(ts) {
     banner.remove();
   };
 
-  // Auto-dismiss after 10s
   setTimeout(() => banner?.remove(), 10000);
 }
 
 // ─── POSTMESSAGE SEEK ─────────────────────────────────────────────────────────
 function attemptSeek(iframe, ts) {
-  // Try multiple message formats used by common embed players
   const msgs = [
     { type: "seek",        time: ts },
     { event: "seek",       seconds: ts },
@@ -499,22 +492,18 @@ function setupPostMessageListener() {
     const d = e.data;
     if (!d) return;
 
-    // Parse string payloads
     let data = d;
     if (typeof d === "string") {
       try { data = JSON.parse(d); } catch { return; }
     }
 
-    // Capture current time from various player event shapes
     const ct = data.currentTime ?? data.time ?? data.position ?? data.seconds;
     if (typeof ct === "number" && ct > 0) savedTimestamp = ct;
 
-    // Capture duration
     const dur = data.duration ?? data.totalTime;
     if (typeof dur === "number" && dur > 0) {
       const wasUnknown = mediaDuration === 0;
       mediaDuration = dur;
-      // If we just learned the real duration and auto-next is on, reschedule more accurately
       if (wasUnknown && mediaType === "tv" && autoNextEnabled) {
         scheduleAutoNext();
       }
