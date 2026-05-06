@@ -1,12 +1,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
-// No API key here — all requests are proxied through /api/tmdb on the server.
-const SEARCH_TMDB = "/api/tmdb";
-const SEARCH_IMG  = "https://image.tmdb.org/t/p/";
-
-function tmdbUrl(path, params = {}) {
-  const qs = new URLSearchParams(params).toString();
-  return `${SEARCH_TMDB}/${path}${qs ? "?" + qs : ""}`;
-}
+const SEARCH_API_KEY = "e9bb455fd0a77ed6738fa3e7826b4ee9";
+const SEARCH_TMDB    = "https://api.themoviedb.org/3";
+const SEARCH_IMG     = "https://image.tmdb.org/t/p/";
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 const urlParams   = new URLSearchParams(window.location.search);
@@ -70,7 +65,7 @@ function setupSearchInput() {
     if (!q) { dropdown.classList.add("hidden"); return; }
     debounce = setTimeout(async () => {
       try {
-        const res  = await fetch(tmdbUrl("search/multi", { query: q, page: 1 }));
+        const res  = await fetch(`${SEARCH_TMDB}/search/multi?api_key=${SEARCH_API_KEY}&query=${encodeURIComponent(q)}&page=1`);
         if (!res.ok) throw new Error();
         const data = await res.json();
         const results = (data.results || []).filter(r => r.media_type !== "person" && r.poster_path).slice(0, 5);
@@ -118,11 +113,7 @@ async function runSearch(reset = true) {
   document.title = `"${searchQuery}" — StreamVault`;
 
   const type = searchType === "multi" ? "multi" : searchType;
-  const url  = tmdbUrl(`search/${type}`, {
-    query: searchQuery,
-    page: searchPage,
-    include_adult: false,
-  });
+  const url  = `${SEARCH_TMDB}/search/${type}?api_key=${SEARCH_API_KEY}&query=${encodeURIComponent(searchQuery)}&page=${searchPage}&include_adult=false`;
 
   let items = [];
   try {
