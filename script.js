@@ -1,7 +1,14 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
-const API_KEY = "e9bb455fd0a77ed6738fa3e7826b4ee9";
-const TMDB    = "https://api.themoviedb.org/3";
-const IMG     = "https://image.tmdb.org/t/p/";
+// No API key here — all requests are proxied through /api/tmdb on the server.
+const TMDB = "/api/tmdb";
+const IMG  = "https://image.tmdb.org/t/p/";
+
+// Helper: build a proxied TMDB URL
+// e.g. tmdbUrl("trending/movie/week", { page: 1 })
+function tmdbUrl(path, params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return `${TMDB}/${path}${qs ? "?" + qs : ""}`;
+}
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let currentTab    = "movies";
@@ -86,7 +93,7 @@ async function fetchDropdown(q, dropdown) {
   let results = [];
 
   try {
-    const res  = await fetch(`${TMDB}/search/${type}?api_key=${API_KEY}&query=${encodeURIComponent(q)}&page=1`);
+    const res  = await fetch(tmdbUrl(`search/${type}`, { query: q, page: 1 }));
     if (!res.ok) throw new Error("Search failed");
     const data = await res.json();
     results = (data.results || []).filter(i => i.poster_path).slice(0, 6);
@@ -127,8 +134,8 @@ async function loadPage(reset = false) {
 
   const type = currentTab === "movies" ? "movie" : "tv";
   const url  = currentGenre
-    ? `${TMDB}/discover/${type}?api_key=${API_KEY}&with_genres=${currentGenre}&sort_by=popularity.desc&page=${currentPage}`
-    : `${TMDB}/trending/${type}/week?api_key=${API_KEY}&page=${currentPage}`;
+    ? tmdbUrl(`discover/${type}`, { with_genres: currentGenre, sort_by: "popularity.desc", page: currentPage })
+    : tmdbUrl(`trending/${type}/week`, { page: currentPage });
 
   let items = [];
   try {
@@ -149,7 +156,6 @@ async function loadPage(reset = false) {
   renderCards(items, grid, type);
   currentPage++;
 
-  // Hide load-more if nothing came back
   if (loadBtn && items.length === 0) loadBtn.style.display = "none";
 }
 
