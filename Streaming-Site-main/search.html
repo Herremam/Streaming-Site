@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Search — StreamVault</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+</head>
+<body class="search-page">
+
+  <nav class="nav">
+    <a href="index.html" class="logo">STREAM<span>VAULT</span></a>
+    <div class="nav-links">
+      <a href="index.html" class="back-link">← Home</a>
+    </div>
+    <div class="search-wrap">
+      <input type="text" id="search" placeholder="Search titles..." autocomplete="off" />
+      <div id="search-results" class="search-dropdown hidden"></div>
+    </div>
+  </nav>
+
+  <main class="main search-main">
+    <div class="search-header">
+      <h1 class="section-title" id="search-heading">Searching...</h1>
+      <div class="search-type-toggle">
+        <button class="tab-btn active" data-type="multi">All</button>
+        <button class="tab-btn" data-type="movie">Movies</button>
+        <button class="tab-btn" data-type="tv">TV Shows</button>
+      </div>
+    </div>
+
+    <div id="no-results" class="no-results hidden">
+      <p>😕 No results found. Try a different search.</p>
+    </div>
+
+    <div id="results-grid" class="grid"></div>
+
+    <div class="load-more-wrap">
+      <button id="load-more" class="btn-more hidden">Load More</button>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>StreamVault &mdash; Powered by TMDB & vsembed</p>
+    <p class="footer-disclaimer">⚠ Do not watch any content on this site. The content displayed here is likely illegally imported from secondary third-party sources. This site is not responsible for any content streamed through embedded players.</p>
+  </footer>
+
+  <script src="search.js"></script>
+  <script src="banner.js"></script>
+</body>
+</html>
