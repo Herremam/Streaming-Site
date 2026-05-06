@@ -663,6 +663,101 @@ body {
   color: var(--text-muted);
   border-top: 1px solid rgba(255,255,255,0.04);
 }
+.footer-disclaimer {
+  margin-top: 8px;
+  font-size: 11px;
+  color: rgba(136,136,153,0.7);
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.5;
+}
+
+/* ─── DISCLAIMER CONSENT BANNER ─────────────────────────────────────────────── */
+#disclaimer-banner {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 9999;
+  padding: 0 16px 16px;
+  transform: translateY(110%);
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+#disclaimer-banner.db-visible {
+  transform: translateY(0);
+  pointer-events: auto;
+}
+#disclaimer-banner.db-hiding {
+  transform: translateY(110%);
+  pointer-events: none;
+}
+.db-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  background: #1a1a24;
+  border: 1px solid rgba(230,57,70,0.35);
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 -4px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(230,57,70,0.1);
+  max-width: 860px;
+  margin: 0 auto;
+}
+.db-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.db-text {
+  flex: 1;
+  min-width: 0;
+}
+.db-text strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.db-text p {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin: 0;
+}
+.db-btn {
+  flex-shrink: 0;
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  padding: 10px 22px;
+  border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  align-self: center;
+  transition: background 0.2s, transform 0.15s;
+}
+.db-btn:hover { background: #c1121f; transform: translateY(-1px); }
+.db-close {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  align-self: flex-start;
+  transition: color 0.2s;
+}
+.db-close:hover { color: var(--text); }
+@media (max-width: 600px) {
+  .db-inner { flex-wrap: wrap; gap: 12px; }
+  .db-btn { width: 100%; text-align: center; }
+}
 
 /* ─── RESPONSIVE ────────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
