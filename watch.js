@@ -96,6 +96,11 @@ async function loadTVDetails() {
   }
   document.title = `${show.name} — StreamVault`;
   totalSeasons = show.number_of_seasons || 1;
+  if (show.episode_run_time && show.episode_run_time.length > 0) {
+    mediaDuration = show.episode_run_time[0] * 60;
+  } else if (show.runtime) {
+    mediaDuration = show.runtime * 60;
+  }
   (show.seasons || []).forEach(s => {
     if (s.season_number > 0) episodeCounts[s.season_number] = s.episode_count;
   });
@@ -159,7 +164,6 @@ function buildEpisodeSelect() {
 }
 
 function setupEpisodeNav() {
-  // Auto-Next toggle
   const autoNextBtn = document.getElementById("autonext-toggle");
   autoNextBtn.onclick = () => {
     autoNextEnabled = !autoNextEnabled;
@@ -170,6 +174,8 @@ function setupEpisodeNav() {
       autoNextTimer = null;
       const existing = document.getElementById("autonext-banner");
       if (existing) existing.remove();
+    } else if (autoNextEnabled && mediaType === "tv") {
+      scheduleAutoNext();
     }
   };
 
