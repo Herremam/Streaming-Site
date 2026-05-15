@@ -2,11 +2,11 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:        #05050f;
-  --bg2:       #0d0d21;
-  --bg3:       #171736;
-  --accent:    #00f0ff;
-  --accent2:   #ff0055;
+  --bg:        #050000;
+  --bg2:       #110000;
+  --bg3:       #1a0505;
+  --accent:    #ff0033;
+  --accent2:   #8b0000;
   --text:      #e8e8f0;
   --text-muted:#888899;
   --card-w:    180px;
@@ -16,7 +16,7 @@
 html { scroll-behavior: smooth; }
 
 body {
-  background: radial-gradient(circle at top right, #171736 0%, #05050f 40%, #05050f 100%);
+  background: radial-gradient(circle at top right, #1a0505 0%, #050000 40%, #000000 100%);
   background-attachment: fixed;
   color: var(--text);
   font-family: 'DM Sans', sans-serif;
@@ -34,7 +34,7 @@ body {
   align-items: center;
   gap: 24px;
   padding: 14px 36px;
-  background: rgba(5, 5, 15, 0.65);
+  background: rgba(5, 0, 0, 0.65);
   backdrop-filter: blur(16px);
   border-bottom: 1px solid rgba(255,255,255,0.08);
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
@@ -159,11 +159,11 @@ body {
   inset: 0;
   background: linear-gradient(
     to right,
-    rgba(5, 5, 15, 0.95) 0%,
-    rgba(5, 5, 15, 0.6) 50%,
-    rgba(5, 5, 15, 0.2) 100%
+    rgba(5, 0, 0, 0.95) 0%,
+    rgba(5, 0, 0, 0.6) 50%,
+    rgba(5, 0, 0, 0.2) 100%
   ),
-  linear-gradient(to top, rgba(5, 5, 15, 1) 0%, transparent 40%);
+  linear-gradient(to top, rgba(0, 0, 0, 1) 0%, transparent 40%);
 }
 
 .hero-content {
@@ -238,16 +238,16 @@ body {
   width: fit-content;
   transition: all 0.2s;
   letter-spacing: 0.3px;
-  box-shadow: 0 4px 15px rgba(0, 240, 255, 0.3);
+  box-shadow: 0 4px 15px rgba(255, 0, 51, 0.3);
   text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
 .btn-watch:hover { 
   transform: translateY(-3px); 
-  box-shadow: 0 8px 25px rgba(255, 0, 85, 0.5); 
+  box-shadow: 0 8px 25px rgba(255, 0, 51, 0.5); 
 }
 .btn-watch:active {
   transform: translateY(2px);
-  box-shadow: 0 2px 10px rgba(0, 240, 255, 0.4);
+  box-shadow: 0 2px 10px rgba(255, 0, 51, 0.4);
 }
 .btn-watch.small { padding: 8px 20px; font-size: 13px; }
 
@@ -332,8 +332,8 @@ body {
 
 .card:hover { 
   transform: translateY(-8px) scale(1.02); 
-  box-shadow: 0 20px 40px rgba(0,0,0,0.8), 0 0 20px rgba(0, 240, 255, 0.3); 
-  border-color: rgba(0, 240, 255, 0.2);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.8), 0 0 20px rgba(255, 0, 51, 0.3); 
+  border-color: rgba(255, 0, 51, 0.2);
 }
 
 .card-img-wrap {
@@ -373,11 +373,11 @@ body {
   align-items: center;
   justify-content: center;
   transition: transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0 4px 15px rgba(0, 240, 255, 0.3);
+  box-shadow: 0 4px 15px rgba(255, 0, 51, 0.3);
 }
 .btn-play:hover { 
   transform: scale(1.15); 
-  box-shadow: 0 8px 25px rgba(255, 0, 85, 0.5);
+  box-shadow: 0 8px 25px rgba(255, 0, 51, 0.5);
 }
 
 .card-rating {
@@ -539,26 +539,6 @@ body {
 }
 .btn-ep:hover { background: rgba(255,255,255,0.13); }
 
-/* Auto-Next Toggle */
-.btn-autonext {
-  background: rgba(255,255,255,0.07);
-  border: 1px solid rgba(255,255,255,0.15);
-  color: var(--text-muted);
-  padding: 6px 14px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  transition: all 0.2s;
-  letter-spacing: 0.03em;
-}
-.btn-autonext:hover { background: rgba(255,255,255,0.12); color: var(--text); }
-.btn-autonext.active {
-  background: rgba(229,9,20,0.18);
-  border-color: var(--accent, #e50914);
-  color: var(--accent, #e50914);
-}
 
 /* Source Bar */
 .source-bar {
@@ -909,31 +889,3 @@ body {
 #resume-no  { background: rgba(255,255,255,0.15); color: #fff; }
 #resume-no:hover { background: rgba(255,255,255,0.25); }
 
-/* Auto-Next Banner */
-#autonext-banner {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  background: rgba(10,10,20,0.92);
-  border: 1px solid rgba(229,9,20,0.5);
-  color: #fff;
-  font-size: 0.9rem;
-  padding: 0.6rem 1rem;
-  border-radius: 6px;
-  margin-bottom: 0.5rem;
-  animation: fadeIn 0.3s ease;
-}
-#autonext-banner span { flex: 1; }
-#autonext-banner strong { color: var(--accent, #e50914); }
-#autonext-banner button {
-  padding: 0.3rem 0.9rem;
-  border-radius: 4px;
-  border: none;
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-#autonext-now    { background: var(--accent, #e50914); color: #fff; }
-#autonext-now:hover { background: #c1121f; }
-#autonext-cancel { background: rgba(255,255,255,0.15); color: #fff; }
-#autonext-cancel:hover { background: rgba(255,255,255,0.25); }
