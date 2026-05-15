@@ -32,8 +32,6 @@ let episodeNames   = {};
 let savedTimestamp = 0;   // seconds — restored from localStorage
 let mediaDuration  = 0;   // seconds — updated via postMessage if available
 let progressTimer  = null;
-let autoNextEnabled = false;       // auto-next toggle state
-let autoNextTimer   = null;        // countdown timer for auto-next
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
@@ -164,20 +162,6 @@ function buildEpisodeSelect() {
 }
 
 function setupEpisodeNav() {
-  const autoNextBtn = document.getElementById("autonext-toggle");
-  autoNextBtn.onclick = () => {
-    autoNextEnabled = !autoNextEnabled;
-    autoNextBtn.textContent = autoNextEnabled ? "Auto-Next: ON" : "Auto-Next: OFF";
-    autoNextBtn.classList.toggle("active", autoNextEnabled);
-    if (!autoNextEnabled && autoNextTimer) {
-      clearTimeout(autoNextTimer);
-      autoNextTimer = null;
-      const existing = document.getElementById("autonext-banner");
-      if (existing) existing.remove();
-    } else if (autoNextEnabled && mediaType === "tv") {
-      scheduleAutoNext();
-    }
-  };
 
   document.getElementById("prev-ep").onclick = async () => {
     if (currentEpisode > 1) { currentEpisode--; }
@@ -247,70 +231,9 @@ function loadPlayer() {
     progressTimer = setInterval(() => {
       try { iframe.contentWindow.postMessage({ type: "getProgress" }, "*"); } catch { }
     }, 15000);
-
-    // Auto-next: schedule after a fixed duration estimate for TV (fallback since embeds block events)
-    if (mediaType === "tv" && autoNextEnabled) {
-      scheduleAutoNext();
-    }
   }, 500);
 }
 
-// ─── AUTO-NEXT ────────────────────────────────────────────────────────────────
-function scheduleAutoNext() {
-  if (autoNextTimer) { clearTimeout(autoNextTimer); autoNextTimer = null; }
-  const existing = document.getElementById("autonext-banner");
-  if (existing) existing.remove();
-
-  // Use known duration or fall back to 42-minute TV episode estimate
-  const epDuration = mediaDuration > 60 ? mediaDuration : 42 * 60;
-  // Show the countdown banner 30s before the estimated end
-  const showBannerIn = Math.max((epDuration - 30) * 1000, 5000);
-
-  autoNextTimer = setTimeout(() => {
-    if (!autoNextEnabled) return;
-    showAutoNextBanner();
-  }, showBannerIn);
-}
-
-function showAutoNextBanner() {
-  const existing = document.getElementById("autonext-banner");
-  if (existing) existing.remove();
-
-  const maxEp      = episodeCounts[currentSeason] || 1;
-  const hasNext    = currentEpisode < maxEp || currentSeason < totalSeasons;
-  if (!hasNext) return;
-
-  let countdown = 10;
-  const banner  = document.createElement("div");
-  banner.id     = "autonext-banner";
-
-  const render = () => {
-    banner.innerHTML = `
-      <span>▶ Next episode in <strong>${countdown}s</strong></span>
-      <button id="autonext-now">Play Now</button>
-      <button id="autonext-cancel">Cancel</button>`;
-    banner.querySelector("#autonext-now").onclick    = () => { clearInterval(tick); banner.remove(); goNextEpisode(); };
-    banner.querySelector("#autonext-cancel").onclick = () => { clearInterval(tick); banner.remove(); };
-  };
-
-  render();
-  document.getElementById("player-wrap")?.prepend(banner);
-
-  const tick = setInterval(() => {
-    countdown--;
-    if (countdown <= 0) { clearInterval(tick); banner.remove(); goNextEpisode(); return; }
-    render();
-  }, 1000);
-}
-
-async function goNextEpisode() {
-  const maxEp = episodeCounts[currentSeason] || 1;
-  if (currentEpisode < maxEp) { currentEpisode++; }
-  else if (currentSeason < totalSeasons) { currentSeason++; currentEpisode = 1; }
-  else { return; } // already at last episode
-  await syncEpisodeSelects();
-  loadPlayer();
-}
 
 // ─── SOURCE BUTTONS ───────────────────────────────────────────────────────────
 function setupSourceButtons() {
@@ -518,12 +441,7 @@ function setupPostMessageListener() {
     // Capture duration
     const dur = data.duration ?? data.totalTime;
     if (typeof dur === "number" && dur > 0) {
-      const wasUnknown = mediaDuration === 0;
       mediaDuration = dur;
-      // If we just learned the real duration and auto-next is on, reschedule more accurately
-      if (wasUnknown && mediaType === "tv" && autoNextEnabled) {
-        scheduleAutoNext();
-      }
     }
   });
 }
