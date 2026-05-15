@@ -289,8 +289,8 @@ function showAutoNextBanner() {
       <span>▶ Next episode in <strong>${countdown}s</strong></span>
       <button id="autonext-now">Play Now</button>
       <button id="autonext-cancel">Cancel</button>`;
-    document.getElementById("autonext-now").onclick    = () => { clearInterval(tick); banner.remove(); goNextEpisode(); };
-    document.getElementById("autonext-cancel").onclick = () => { clearInterval(tick); banner.remove(); };
+    banner.querySelector("#autonext-now").onclick    = () => { clearInterval(tick); banner.remove(); goNextEpisode(); };
+    banner.querySelector("#autonext-cancel").onclick = () => { clearInterval(tick); banner.remove(); };
   };
 
   render();
